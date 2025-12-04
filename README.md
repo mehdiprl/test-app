@@ -28,9 +28,14 @@ Die Anleitung ist so aufgebaut, dass sie auch für absolute Einsteiger nachvollz
    7.3 [Service erstellen](#73-service-erstellen)  
    7.4 [Deployment & Service anwenden](#74-deployment--service-anwenden)  
    7.5 [App in Kubernetes testen](#75-app-in-kubernetes-testen)  
-   7.6 [Erklärung: Was Deployment & Service tun](#76-erklärung-was-deployment--service-tun)  
-8. [Git-Commits & Push nach GitHub](#git-commits--push-nach-github)  
-9. [Nächste Schritte (Ausblick)](#nächste-schritte-ausblick)
+   7.6 [Erklärung: Was Deployment & Service tun](#76-erklärung-was-deployment--service-tun)
+   7.7 [Git-Commits & Push nach GitHub](#77-git-commits--push-nach-github)
+   7.8 [Nächste Schritte 1 (Ausblick)](#78-nächste-schritte-1-ausblick)
+8. [Helm-Chart (Deployment der Anwendung mit Helm)](#helm-chart-deployment-der-anwendung-mit-helm)
+   8.1 [Helm-Chart erstellen](#81-helm-chart-erstellen)
+   8.2 [Anwendung in Kubernetes testen](#82-anwendung-in-kubernetes-testen)
+   8.3 [Helm-Upgrade (Beispiel)](#83-helm-upgrade-beispiel)
+   8.4 [Zusammenfassung – Vorteile des Helm-Charts](#84-zusammenfassung--vorteile-des-helm-charts)
 
 ---
 
@@ -546,7 +551,7 @@ Kurz gesagt:
 
 ---
 
-## Git-Commits & Push nach GitHub
+### 7.7 Git-Commits & Push nach GitHub
 
 Alle wichtigen Schritte werden mit Git versioniert und auf GitHub veröffentlicht.
 
@@ -563,7 +568,7 @@ Damit ist der aktuelle Projektstand im GitHub-Repository sichtbar.
 
 ---
 
-## Nächste Schritte (Ausblick)
+### 7.8 Nächste Schritte 1 (Ausblick)
 
 Dieses Repository bildet die Basis für weitere, fortgeschrittene DevOps-/Cloud-Themen:
 
@@ -574,14 +579,16 @@ Dieses Repository bildet die Basis für weitere, fortgeschrittene DevOps-/Cloud-
 
 Diese weiteren Schritte können auf diesem Fundament aufbauen und das Projekt in Richtung einer vollwertigen „Enterprise Kubernetes Platform“ weiterentwickeln.
 
-## Helm-Chart – Deployment der Anwendung mit Helm
+---
+
+## Helm-Chart (Deployment der Anwendung mit Helm)
 
 Nachdem die Anwendung erfolgreich über reine Kubernetes-Manifeste (`deployment.yaml`, `service.yaml`) im Cluster lief, wurde im nächsten Schritt ein eigenes **Helm-Chart** erstellt.  
 Helm ermöglicht ein wiederverwendbares, versionierbares und produktionsähnliches Deployment der Anwendung.
 
 ---
 
-### ⚙️ Warum Helm?
+### Warum Helm?
 
 Helm löst mehrere typische Probleme bei Kubernetes-Deployments:
 
@@ -597,7 +604,7 @@ Kurz gesagt:
 
 ---
 
-## 1. Helm-Chart erstellen
+### 8.1 Helm-Chart erstellen
 
 Im Projektordner wurde ein neues Chart erzeugt:
 
@@ -620,7 +627,7 @@ test-app-chart/
 
 ---
 
-## 2. Konfiguration in `values.yaml`
+#### 1. Konfiguration in `values.yaml`
 
 In `test-app-chart/values.yaml` wurden die Werte für das Deployment definiert:
 
@@ -646,7 +653,7 @@ Diese Werte steuern:
 
 ---
 
-## 3. Deployment-Template anpassen
+#### 2. Deployment-Template anpassen
 
 Die Datei `templates/deployment.yaml` wurde an die eigene Anwendung angepasst und Health-Checks übernommen (readiness & liveness Probes):
 
@@ -659,7 +666,7 @@ Damit ist das Deployment vollständig template-basiert und konfigurierbar.
 
 ---
 
-## 4. Service-Template anpassen
+#### 3. Service-Template anpassen
 
 In `templates/service.yaml` wurde der Kubernetes-Service templatisiert:
 
@@ -675,7 +682,7 @@ Der Name ergibt sich aus:
 
 ---
 
-## 5. Chart rendern (lokaler Test)
+#### 4. Chart rendern (lokaler Test)
 
 Bevor das Chart installiert wird, kann man es als plain YAML rendern:
 
@@ -687,7 +694,7 @@ Damit sieht man exakt, welche Kubernetes-Objekte erzeugt werden.
 
 ---
 
-## 6. Image in den kind-Cluster laden
+#### 5. Image in den kind-Cluster laden
 
 Da kind keine lokalen Images kennt:
 
@@ -697,7 +704,7 @@ kind load docker-image test-app:local --name dev-cluster
 
 ---
 
-## 7. Chart im Cluster installieren
+#### 6. Chart im Cluster installieren
 
 Installation oder Upgrade:
 
@@ -720,7 +727,7 @@ test-app-test-app-chart
 
 ---
 
-## 8. Anwendung in Kubernetes testen
+### 8.2 Anwendung in Kubernetes testen
 
 Port-Forwarding:
 
@@ -735,7 +742,7 @@ API erreichbar unter:
 
 ---
 
-## 9. Helm-Upgrade (Beispiel)
+### 8.3 Helm-Upgrade (Beispiel)
 
 Änderung in `values.yaml`, z. B.:
 
@@ -757,7 +764,7 @@ kubectl get pods
 
 ---
 
-## 🔍 Zusammenfassung – Vorteile des Helm-Charts
+### 8.4 Zusammenfassung – Vorteile des Helm-Charts
 
 - Werte werden zentral in `values.yaml` verwaltet  
 - Templates ermöglichen Wiederverwendung & klare Struktur  
@@ -766,3 +773,4 @@ kubectl get pods
 - Produktionsnahe Struktur, ideal für DevOps-Portfolios
 
 Dieses Helm-Setup bildet die Basis für den nächsten Schritt: **GitOps mit ArgoCD**.
+
