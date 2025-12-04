@@ -573,3 +573,196 @@ Dieses Repository bildet die Basis für weitere, fortgeschrittene DevOps-/Cloud-
 - Migration vom lokalen `kind`-Cluster auf einen Managed Kubernetes-Dienst (z. B. AWS EKS)
 
 Diese weiteren Schritte können auf diesem Fundament aufbauen und das Projekt in Richtung einer vollwertigen „Enterprise Kubernetes Platform“ weiterentwickeln.
+
+## Helm-Chart – Deployment der Anwendung mit Helm
+
+Nachdem die Anwendung erfolgreich über reine Kubernetes-Manifeste (`deployment.yaml`, `service.yaml`) im Cluster lief, wurde im nächsten Schritt ein eigenes **Helm-Chart** erstellt.  
+Helm ermöglicht ein wiederverwendbares, versionierbares und produktionsähnliches Deployment der Anwendung.
+
+---
+
+### ⚙️ Warum Helm?
+
+Helm löst mehrere typische Probleme bei Kubernetes-Deployments:
+
+- Wiederverwendbare Templates statt duplizierter YAML-Dateien  
+- Klare Struktur und Trennung von Werten (`values.yaml`) und Logik (`templates/`)  
+- Einfache Deployments, Upgrades und Rollbacks  
+- Versionskontrolle über Git  
+- Grundstein für GitOps mit ArgoCD  
+
+Kurz gesagt:
+
+> Helm macht Deployments professioneller, flexibler und einfacher wartbar.
+
+---
+
+## 1. Helm-Chart erstellen
+
+Im Projektordner wurde ein neues Chart erzeugt:
+
+```bash
+cd D:\dev\test-app
+helm create test-app-chart
+```
+
+Helm erzeugt die folgende Struktur:
+
+```
+test-app-chart/
+  Chart.yaml
+  values.yaml
+  templates/
+    deployment.yaml
+    service.yaml
+    _helpers.tpl
+```
+
+---
+
+## 2. Konfiguration in `values.yaml`
+
+In `test-app-chart/values.yaml` wurden die Werte für das Deployment definiert:
+
+```yaml
+replicaCount: 2
+
+image:
+  repository: test-app
+  tag: "local"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8000
+```
+
+Diese Werte steuern:
+
+- Anzahl der Pods  
+- Docker-Image der App  
+- Port des Services  
+- Pull-Verhalten  
+
+---
+
+## 3. Deployment-Template anpassen
+
+Die Datei `templates/deployment.yaml` wurde an die eigene Anwendung angepasst und Health-Checks übernommen (readiness & liveness Probes):
+
+- Dynamische Namen & Labels via Helm (`fullname`, `labels`)  
+- Image & Replicas aus `values.yaml`  
+- Container-Port: 8000  
+- `/health` wird als Probe-Endpunkt verwendet
+
+Damit ist das Deployment vollständig template-basiert und konfigurierbar.
+
+---
+
+## 4. Service-Template anpassen
+
+In `templates/service.yaml` wurde der Kubernetes-Service templatisiert:
+
+- Typ (`ClusterIP`) und Port (`8000`) aus `values.yaml`
+- Selektiert Pods anhand von automatisch gesetzten Labels
+- Service-Name wird über Helm generiert (z. B. `test-app-test-app-chart`)
+
+Der Name ergibt sich aus:
+
+```
+<release-name>-<chart-name>
+```
+
+---
+
+## 5. Chart rendern (lokaler Test)
+
+Bevor das Chart installiert wird, kann man es als plain YAML rendern:
+
+```bash
+helm template test-app ./test-app-chart
+```
+
+Damit sieht man exakt, welche Kubernetes-Objekte erzeugt werden.
+
+---
+
+## 6. Image in den kind-Cluster laden
+
+Da kind keine lokalen Images kennt:
+
+```bash
+kind load docker-image test-app:local --name dev-cluster
+```
+
+---
+
+## 7. Chart im Cluster installieren
+
+Installation oder Upgrade:
+
+```bash
+helm upgrade --install test-app ./test-app-chart
+```
+
+Danach prüfen:
+
+```bash
+kubectl get pods
+kubectl get svc
+```
+
+Der automatisch generierte Service-Name war z. B.:
+
+```
+test-app-test-app-chart
+```
+
+---
+
+## 8. Anwendung in Kubernetes testen
+
+Port-Forwarding:
+
+```bash
+kubectl port-forward service/test-app-test-app-chart 8000:8000
+```
+
+API erreichbar unter:
+
+- http://localhost:8000/
+- http://localhost:8000/health
+
+---
+
+## 9. Helm-Upgrade (Beispiel)
+
+Änderung in `values.yaml`, z. B.:
+
+```yaml
+replicaCount: 3
+```
+
+Upgrade:
+
+```bash
+helm upgrade test-app ./test-app-chart
+```
+
+Pods prüfen:
+
+```bash
+kubectl get pods
+```
+
+---
+
+## 🔍 Zusammenfassung – Vorteile des Helm-Charts
+
+- Werte werden zentral in `values.yaml` verwaltet  
+- Templates ermöglichen Wiederverwendung & klare Struktur  
+- Updates erfolgen sauber über `helm upgrade`  
+- Vollständig kompatibel mit ArgoCD & GitOps  
+- Produktionsnahe Struktur, ideal für DevOps-Portfolios
+
+Dieses Helm-Setup bildet die Basis für den nächsten Schritt: **GitOps mit ArgoCD**.
