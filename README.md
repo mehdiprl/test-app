@@ -27,15 +27,23 @@ Die Anleitung ist so aufgebaut, dass sie auch für absolute Einsteiger nachvollz
    7.2 [Deployment erstellen](#72-deployment-erstellen)  
    7.3 [Service erstellen](#73-service-erstellen)  
    7.4 [Deployment & Service anwenden](#74-deployment--service-anwenden)  
-   7.5 [App in Kubernetes testen](#75-app-in-kubernetes-testen)  
-   7.6 [Erklärung: Was Deployment & Service tun](#76-erklärung-was-deployment--service-tun)
-   7.7 [Git-Commits & Push nach GitHub](#77-git-commits--push-nach-github)
-   7.8 [Nächste Schritte 1 (Ausblick)](#78-nächste-schritte-1-ausblick)
-8. [Helm-Chart (Deployment der Anwendung mit Helm)](#helm-chart-deployment-der-anwendung-mit-helm)
-   8.1 [Helm-Chart erstellen](#81-helm-chart-erstellen)
-   8.2 [Anwendung in Kubernetes testen](#82-anwendung-in-kubernetes-testen)
-   8.3 [Helm-Upgrade (Beispiel)](#83-helm-upgrade-beispiel)
-   8.4 [Zusammenfassung – Vorteile des Helm-Charts](#84-zusammenfassung--vorteile-des-helm-charts)
+   7.5 [App in Kubernetes testen](#75-app-in-kubernetes-testen)   
+   7.6 [Erklärung: Was Deployment & Service tun](#76-erklärung-was-deployment--service-tun)  
+   7.7 [Git-Commits & Push nach GitHub](#77-git-commits--push-nach-github)  
+   7.8 [Nächste Schritte 1 (Ausblick)](#78-nächste-schritte-1-ausblick)  
+8. [Helm-Chart (Deployment der Anwendung mit Helm)](#helm-chart-deployment-der-anwendung-mit-helm)  
+   8.1 [Helm-Chart erstellen](#81-helm-chart-erstellen)  
+   8.2 [Anwendung in Kubernetes testen](#82-anwendung-in-kubernetes-testen)  
+   8.3 [Helm-Upgrade (Beispiel)](#83-helm-upgrade-beispiel)  
+   8.4 [Zusammenfassung – Vorteile des Helm-Charts](#84-zusammenfassung--vorteile-des-helm-charts)  
+9. [GitOps mit ArgoCD – Automatisiertes Deployment des Helm-Charts](#gitops-mit-argocd--automatisiertes-deployment-des-helm-charts)  
+   9.1 [Installation von ArgoCD im Kubernetes-Cluster](#91-installation-von-argocd-im-kubernetes-cluster)  
+   9.2 [Zugriff auf die ArgoCD-Weboberfläche](#92-zugriff-auf-die-argocd-weboberfläche)  
+   9.3 [Erstellen der ersten ArgoCD Application](#93-erstellen-der-ersten-argocd-application)  
+   9.4 [Synchronisation des Deployments mit ArgoCD](#94-synchronisation-des-deployments-mit-argocd)  
+   9.5 [GitOps in Aktion - Änderungen per Git ausrollen](#95-gitops-in-aktion---änderungen-per-git-ausrollen)  
+   9.6 [Optional: Autmatische Synchronisation aktivieren](#96-optional-autmatische-synchronisation-aktivieren)  
+   9.7 [Zusammenfassung – GitOps mit ArgoCD](#97-zusammenfassung--gitops-mit-argocd)  
 
 ---
 
@@ -773,4 +781,185 @@ kubectl get pods
 - Produktionsnahe Struktur, ideal für DevOps-Portfolios
 
 Dieses Helm-Setup bildet die Basis für den nächsten Schritt: **GitOps mit ArgoCD**.
+
+---
+
+## GitOps mit ArgoCD – Automatisiertes Deployment des Helm-Charts
+
+Nach der erfolgreichen Erstellung des Helm-Charts wurde das Projekt um **ArgoCD** erweitert, um einen vollständig GitOps-basierten Deployment-Prozess zu ermöglichen.  
+GitOps bedeutet: *Der Zustand des Clusters wird ausschließlich durch das Git-Repository definiert.*  
+ArgoCD überwacht das Repository und synchronisiert automatisch alle Änderungen in den Kubernetes-Cluster.
+
+---
+
+### Was ist ArgoCD?
+
+ArgoCD ist ein deklaratives GitOps-Tool für Kubernetes.  
+Es übernimmt:
+
+- automatisches Anwenden von Konfigurationen aus Git  
+- Health-Checks und Statusanzeigen der Ressourcen  
+- visuelle Darstellung der Deployments  
+- Rollback, Diff, Sync und History  
+- automatisches Erkennen von Änderungen im Git-Repo  
+
+Kurz gesagt:
+
+> ArgoCD sorgt dafür, dass der tatsächliche Zustand im Cluster immer dem Zustand im Git-Repository entspricht.
+
+---
+
+### 9.1 Installation von ArgoCD im Kubernetes-Cluster
+
+Zuerst wurde ein eigener Namespace für ArgoCD angelegt:
+
+```bash
+kubectl create namespace argocd
+```
+
+Danach erfolgte die Installation:
+
+```bash
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+```
+
+Nach der Installation konnten alle Pods überprüft werden:
+
+```bash
+kubectl get pods -n argocd
+```
+
+### 9.2 Zugriff auf die ArgoCD-Weboberfläche
+
+Die Web-UI von ArgoCD wurde über Port-Forwarding verfügbar gemacht:
+
+```bash
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+```
+
+Die Oberfläche ist danach erreichbar unter:
+
+- https://localhost:8080
+
+Das Admin-Passwort wurde aus einem Kubernetes-Secret ausgelesen:
+
+Terminal:
+
+```bash
+kubectl get pods -n argocd
+```
+
+oder PowerShell:
+
+```powershell
+$passEncoded = kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}"
+[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($passEncoded))
+```
+
+Login:
+- Benutzername: `admin`
+- Passwort: aus Secret
+
+---
+
+### 9.3 Erstellen der ersten ArgoCD Application
+
+In der ArgoCD-UI wurde eine neue Application angelegt, die direkt auf das GitHub-Repository des Projekts zeigt.
+
+**Wichtige Felder:**
+
+- **Aplication Name:** `test-app`
+- **Repository URL:** Git-URL des Projekts (https://github.com/mehdiprl/test-app)
+- **Revision:** `main`
+- **Path:** `test-app-chart` (Pfad zum Helm-Chart im Repository)
+- **Cluster:** https://kubernetes.default.svc`
+- **Namespace:** `default`
+
+> ArgoCD verwendet nun dieses Helm-Chart als Quelle und erzeugt/aktualisiert die Kubernetes-Ressourcen automatisch.
+
+---
+
+### 9.4 Synchronisation des Deployments mit ArgoCD
+
+Nach dem Erstellen der Application zeigte ArgoCD den Status „OutOfSync“.
+Eine manuelle Synchronisation wurde durchgeführt:
+
+- In der UI: **SNYC** klicken
+- ArgoCD rendert das Helm-Chart
+- Kubernetes-Deployment, Service und Pods werden automatisch erstellt
+
+Die Ergebnisse waren unmittelbar sichtbar:
+
+```bash
+kubectl get pods
+kubectl get svc
+```
+
+Damit wurde die App erfolgreich durch ArgoCD deployed.
+
+---
+
+### 9.5 GitOps in Aktion - Änderungen per Git ausrollen
+
+Um den GitOps-Workflow zu testen, wurde eine Konfigurationsänderung vorgenommen.
+Beispiel:
+
+In `test-app-chart/values.yaml` wurde:
+
+```yaml
+replicaCount: 2
+```
+
+auf:
+
+```yaml
+replicaCount: 3
+```
+
+geändert.
+
+Dann:
+
+```bash
+git add test-app-chart/values.yaml
+git commit -m "Increase replicas to 3"
+git push
+```
+
+ArgoCD erkannte automatisch, dass sich der Zustand im Git geändert hatte.
+Nach einem erneuten SYNC (oder automatisch, falls Auto-Sync aktiviert ist):
+
+```bash
+kubectl get pods
+```
+
+Es liefen jetzt 3 Pods der Anwendung.
+
+---
+
+### 9.6 Optional: Autmatische Synchronisation aktivieren
+
+In ArgoCD kann die Application so konfiguriert werden, dass jede Git-Änderung automatisch ausgerollt wird:
+
+- Application öffnen
+- „App Details / Settings“
+- Sync Policy → Automatic
+  - Optional: Self Heal
+  - Optional: Prune
+
+Damit entsteht ein echter GitOps-Workflow:
+**Commit → Push → ArgoCD erkennt Änderung → Kubernetes wird automatisch aktualisiert.**
+
+### 9.7 Zusammenfassung – GitOps mit ArgoCD
+
+Durch die Integration von ArgoCD wurde das Projekt auf ein professionelles DevOps-Niveau gehoben:
+
+- Helm-Chart als deklarative Deployment-Basis
+- ArgoCD überwacht das GitHub-Repository
+- Änderungen werden automatisch erkannt
+- Manuelles Deployen entfällt
+- Cluster-Zustand = Git-Zustand
+- Visuelle Oberfläche für Health, Sync, Logs, History und Rollbacks
+
+GitOps ist heute Standard in Kubernetes-Teams und dieses Projekt bildet einen vollständigen, realistischen GitOps-Workflow ab.
 
